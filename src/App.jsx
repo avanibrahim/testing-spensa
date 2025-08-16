@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Navbar from '@/components/Navbar'; // navbar tunggal di atas
 import ErrorBoundary from './ErrorBoundary.jsx';
 
 import Home from '@/pages/Home';
@@ -12,6 +13,7 @@ export default function App() {
   return (
     <Router>
       <ErrorBoundary>
+        <Navbar />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/monitoring" element={<Monitoring />} />
