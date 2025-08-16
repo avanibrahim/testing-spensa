@@ -8,12 +8,14 @@ import IrigasiTetes from '@/pages/IrigasiTetes';
 import Hidroponik from '@/pages/Hidroponik';
 import BerandaIrigasi from '@/pages/BerandaIrigasi';
 import Monitoring from '@/pages/Monitoring';
+import NotificationGate from '@/components/NotificationGate';
 
 export default function App() {
   return (
     <Router>
       <ErrorBoundary>
         <Navbar />
+        <NotificationGate />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/monitoring" element={<Monitoring />} />

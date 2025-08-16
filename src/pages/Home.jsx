@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Navbar from '@/components/Navbar';
+import { requestNotificationPermission } from '../utils/notifications';
 
 const Home = () => {
   const [showButton, setShowButton] = useState(false);
