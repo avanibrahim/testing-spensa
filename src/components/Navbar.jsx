@@ -22,7 +22,7 @@ const Navbar = () => {
       label: 'monitoring',
       icon: Activity,
       children: [
-        { path: '/monitoring/irigasitetes', label: 'Irigasi Tetes' },
+        { path: '/irigasitetes', label: 'Irigasi Tetes' },
         { path: '/hidroponik', label: 'Hidroponik' },
       ],
     },
