@@ -11,6 +11,7 @@ import DataLoggerIrigasi from "@/components/DataLoggerIrigasi";
 import SensorChartIrigasi from "@/components/SensorChartIrigasi";
 import useSpreadsheet from "@/hooks/useSpreadsheet";
 import { requestNotificationPermission, showLocalNotification } from "@/utils/notifications";
+import useThresholdNotifications from "../hooks/useThresholdNotifications";
 
 const SPREADSHEET_ID = "1Y_LrC7kzvRlMPthtowIohP3ubRVGYDLoZEvjR2YPt1g";
 const SHEET_GID = 0; // Sheet pertama
@@ -34,34 +35,7 @@ const THRESHOLDS = {
   flowRate:        { min: 0.2, max: 8,   label: "Flow",             unit: " L/min" },
 };
 
-function useThresholdNotifications(data, enabled = true) {
-  useEffect(() => {
-    if (!enabled || !Array.isArray(data) || data.length === 0) return;
-    if (!("Notification" in window) || Notification.permission !== "granted") return;
 
-    const latest = data[data.length - 1];
-    const now = Date.now();
-
-    Object.entries(THRESHOLDS).forEach(([key, rule]) => {
-      const val = Number(latest?.[key]);
-      if (!Number.isFinite(val)) return;
-
-      const outOfRange = val < rule.min || val > rule.max;
-      if (!outOfRange) return;
-
-      const tag = `thr-${key}`;
-      const last = Number(localStorage.getItem(tag) || 0);
-      if (now - last < 60_000) return; // throttle 1 menit
-
-      showLocalNotification({
-        title: "Peringatan Irigasi",
-        body: `${rule.label}: ${val}${rule.unit} di luar batas (${rule.min}–${rule.max}${rule.unit}).`,
-        tag,
-      });
-      localStorage.setItem(tag, String(now));
-    });
-  }, [data, enabled]);
-}
 
 // ----- PAGE -----
 const IrigasiTetes = () => {

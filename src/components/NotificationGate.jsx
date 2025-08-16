@@ -29,7 +29,6 @@ export default function NotificationGate() {
               const r = await requestNotificationPermission();
               setPerm(r);
               if (r !== 'granted') {
-                // simpan supaya tidak muncul tiap refresh
                 localStorage.setItem('notifDismissed', '1');
                 setDismissed(true);
               }

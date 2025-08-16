@@ -116,7 +116,7 @@ const BerandaIrigasi = () => {
                 Pantau suhu dan kelembaban tanaman cabai secara real-time melalui IoT ESP32 dan sensor DHT22.
               </p>
 
-              <Link to="/monitoring/irigasitetes">
+              <Link to="/irigasitetes">
                 <Button size="lg" className="bg-red-600 text-white hover:bg-red-700 px-8 py-4 text-lg font-semibold">
                   Masuk Dashboard
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -172,10 +172,10 @@ const BerandaIrigasi = () => {
                 whileInView={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8 }}
               >
-                <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-6">
+                <h2 className="text-2xl md:text-5xl font-bold text-gray-800 mb-6">
                   Teknologi IoT Terdepan
                 </h2>
-                <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+                <p className="text-sm md:text-5xl text-gray-600 mb-8 leading-relaxed">
                   Menggunakan sensor DHT22 yang presisi dan mikrokontroler YD-ESP32-23 
                   untuk konektivitas yang handal dan monitoring yang akurat.
                 </p>
@@ -244,7 +244,8 @@ const BerandaIrigasi = () => {
                   <img  
                     alt="Sistem hidroponik IoT dengan sensor dan monitoring"
                     className="w-full h-96 object-cover rounded-2xl shadow-2xl"
-                   src="https://images.unsplash.com/photo-1614846027182-cecfee3a427b" />
+                   src="https://images.unsplash.com/photo-1614846027182-cecfee3a427b" 
+                   draggable="false"/>
                 </div>
                 <div className="absolute -top-4 -right-4 w-full h-full bg-gradient-to-br from-green-400 to-blue-400 rounded-2xl -z-10"></div>
               </motion.div>
@@ -380,7 +381,7 @@ const BerandaIrigasi = () => {
                       }}
                     >
                       <img
-                        src="/images/kegiatan-1.jpg"
+                        src="https://dm1.co.id/wp-content/uploads/2017/08/HUT-SMP-1-Gorontalo.jpg"
                         alt="Kegiatan 1"
                         className="w-64 h-48 object-cover rounded-lg"
                       />

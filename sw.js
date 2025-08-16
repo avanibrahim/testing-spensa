@@ -2,12 +2,13 @@
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', () => self.clients.claim());
 
+// Klik notifikasi → buka halaman irigasi
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(clients.openWindow('/irigasitetes'));
 });
 
-// optional: nanti kalau pakai Web Push dari server
+// (Opsional) dukung push dari server nanti
 self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data?.json?.() || {}; } catch {}
@@ -17,8 +18,8 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(title, {
       body,
       tag: data.tag || 'push',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: '/notif.png',
+      badge: '/notif.png',
     })
   );
 });

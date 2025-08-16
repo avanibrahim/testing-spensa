@@ -35,8 +35,11 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link to="/" className="flex items-center space-x-2">
-            <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.5 }} className={`p-2 rounded-lg ${isIrigasiTheme ? 'bg-red-500' : 'bg-green-500'}`}>
-              <Leaf className="h-6 w-6 text-white" />
+            <motion.div className={`p-2 rounded-lg ${isIrigasiTheme ? 'bg-red-500' : 'bg-green-500'}`}>
+              <img  
+                alt="Sistem hidroponik IoT dengan sensor dan monitoring"
+                className="w-8 h-8"
+                src="/logo.png" />
             </motion.div>
             <span className={`text-xl font-bold ${isIrigasiTheme ? 'text-red-700' : 'text-green-700'}`}>SmartFarming</span>
           </Link>
