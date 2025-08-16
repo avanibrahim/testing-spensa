@@ -140,7 +140,7 @@ const SensorChartIrigasi = ({ data, isLive }) => {
       )}
 
       {/* Summary */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
+      <div className="mt-6 grid grid-cols-2 md:grid-cols-6 gap-4">
   <div className="text-center p-4 bg-red-50 rounded-lg">
     <div className="text-2xl font-bold text-red-600">
       {chartData.length > 0 ? `${avg(chartData, "suhuTanah").toFixed(1)}°C` : "--"}
