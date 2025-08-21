@@ -86,7 +86,7 @@ const Hidroponik = () => {
           ...prev,
           {
             timestamp: new Date().toISOString(),
-            suhu: 20 + Math.random() * 10, // 20-30°C
+            suhu: 5 + Math.random() * 10, // 20-30°C
             flowRate: 1 + Math.random() * 3, // 1-4 L/min
             pH: 5.5 + Math.random() * 2 // 5.5-7.5
           }

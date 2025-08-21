@@ -5,7 +5,7 @@ export const THRESHOLDS = {
   suhuTanah:       { min: 18,  max: 35,  label: 'Suhu Tanah',       unit: '°C' },
   suhuUdara:       { min: 18,  max: 38,  label: 'Suhu Udara',       unit: '°C' },
   kelembabanUdara: { min: 40,  max: 90,  label: 'Kelembaban Udara', unit: '%'  },
-  kelembapanTanah: { min: 30,  max: 70,  label: 'Kelembapan Tanah', unit: '%'  },
+  kelembapanTanah: { min: 69,  max: 78,  label: 'Kelembapan Tanah', unit: '%'  },
   ph:              { min: 5.5, max: 7.2, label: 'pH Tanah',         unit: ''   },
   flowRate:        { min: 0.2, max: 8,   label: 'Flow',             unit: ' L/min' },
 };

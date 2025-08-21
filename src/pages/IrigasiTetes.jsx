@@ -69,16 +69,10 @@ const IrigasiTetes = () => {
   }, [isLive, loading]);
 
   function parseTimestamp(row) {
-    if (row["Timestamp"] && row["Waktu"]) {
-      if (row["Timestamp"].includes("-")) {
-        return `${row["Timestamp"]}T${row["Waktu"]}`;
-      }
-      if (row["Timestamp"].includes("/")) {
-        const [d, m, y] = row["Timestamp"].split("/");
-        return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}T${row["Waktu"]}`;
-      }
+    if (row["Timestamp (UTC)"] && row["Waktu (WIB)"]) {
+      return `${row["Timestamp (UTC)"]}T${row["Waktu (WIB)"]}`;
     }
-    return row["Timestamp"] || row["Waktu"] || new Date().toISOString();
+    return row["Timestamp (UTC)"] || row["Waktu (WIB)"] || new Date().toISOString();
   }
 
   // Data yang dipakai chart/logger
