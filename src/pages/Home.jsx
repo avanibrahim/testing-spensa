@@ -373,7 +373,7 @@ const Home = () => {
 
                 {/* Foto Kegiatan */}
                 <section className="mt-10">
-                  <h2 className="text-2xl font-semibold mb-4 mt-4">Dokumentasi Kegiatan</h2>
+                  <h2 className="text-2xl md:text-4xl font-semibold mb-4 mt-4">Kegiatan</h2>
                   <div className="overflow-hidden relative w-full h-48 rounded-xl shadow-lg bg-gray-100">
                     <div
                       className="flex gap-4 absolute"

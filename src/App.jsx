@@ -12,6 +12,7 @@ import IrigasiTetes from '@/pages/IrigasiTetes';
 import Hidroponik from '@/pages/Hidroponik';
 import BerandaIrigasi from '@/pages/BerandaIrigasi';
 import Monitoring from '@/pages/Monitoring';
+import Tentang from '@/pages/Tentang';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/monitoring" element={<Monitoring />} />
           <Route path="/irigasitetes" element={<IrigasiTetes />} />
           <Route path="/hidroponik" element={<Hidroponik />} />
+          <Route path="/tentang" element={<Tentang />} />
           <Route path="/berandairigasi" element={<BerandaIrigasi />} />
           <Route path="/contact" element={<Contact />} />
         </Routes>

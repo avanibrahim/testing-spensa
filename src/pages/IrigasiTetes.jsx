@@ -10,11 +10,11 @@ import { Link, useNavigate } from "react-router-dom";
 import DataLoggerIrigasi from "@/components/DataLoggerIrigasi";
 import SensorChartIrigasi from "@/components/SensorChartIrigasi";
 import useSpreadsheet from "@/hooks/useSpreadsheet";
-import { requestNotificationPermission, showLocalNotification } from "@/utils/notifications";
+import { requestNotificationPermission } from "@/utils/notifications";
 import useThresholdNotifications from "../hooks/useThresholdNotifications";
 
 const SPREADSHEET_ID = "1Y_LrC7kzvRlMPthtowIohP3ubRVGYDLoZEvjR2YPt1g";
-const SHEET_GID = 0; // Sheet pertama
+const SHEET_GID = 1; // Sheet pertama
 
 function parseNumber(value) {
   if (typeof value === "string") {
@@ -29,13 +29,11 @@ function parseNumber(value) {
 const THRESHOLDS = {
   suhuTanah:       { min: 18,  max: 35,  label: "Suhu Tanah",       unit: "°C" },
   suhuUdara:       { min: 18,  max: 38,  label: "Suhu Udara",       unit: "°C" },
-  kelembabanUdara: { min: 40,  max: 90,  label: "Kelembaban Udara", unit: "%"  }, // <- 'ba' (sesuai datamu)
+  kelembabanUdara: { min: 40,  max: 90,  label: "Kelembaban Udara", unit: "%"  },
   kelembapanTanah: { min: 30,  max: 70,  label: "Kelembapan Tanah", unit: "%"  },
   ph:              { min: 5.5, max: 7.2, label: "pH Tanah",         unit: ""   },
   flowRate:        { min: 0.2, max: 8,   label: "Flow",             unit: " L/min" },
 };
-
-
 
 // ----- PAGE -----
 const IrigasiTetes = () => {
@@ -68,28 +66,104 @@ const IrigasiTetes = () => {
     if (!isLive) setIsInitialLoad(false);
   }, [isLive, loading]);
 
+  // ========= FIX: parse timestamp sesuai sheet (bulan 0-based, waktu WIB, tanpa UTC shift) =========
   function parseTimestamp(row) {
-    if (row["Timestamp (UTC)"] && row["Waktu (WIB)"]) {
-      return `${row["Timestamp (UTC)"]}T${row["Waktu (WIB)"]}`;
+    const rawDate = row["Timestamp (UTC)"] ?? row["Timestamp"] ?? row["Tanggal"] ?? row["Waktu (WIB)"] ?? row["Waktu"];
+
+    const parseDateLike = (val) => {
+      if (!val) return null;
+
+      // 1) Pola "Date(y,m,d,h,mi,s)" dari Google (m = 0-based)
+      if (typeof val === "string") {
+        const m = val.match(/Date\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+))?\s*\)/i);
+        if (m) {
+          const [, y, mo, d, hh = "0", mi = "0", ss = "0"] = m;
+          // gunakan konstruktor lokal (bukan UTC) dan JANGAN -1 bulan: input sudah 0-based
+          return new Date(+y, +mo, +d, +hh, +mi, +ss, 0);
+        }
+      }
+
+      // 2) Bentuk teks "dd/mm/yyyy hh:mm:ss" (id-ID)
+      if (typeof val === "string") {
+        const m2 = val.match(
+          /^\s*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:[ ,T]+(\d{1,2})[:.](\d{1,2})(?:[:.](\d{1,2}))?)?\s*$/
+        );
+        if (m2) {
+          const [, dd, mm, yyyy, hh = "0", mi = "0", ss = "0"] = m2;
+          return new Date(+yyyy, +mm - 1, +dd, +hh, +mi, +ss, 0);
+        }
+        // 3) Coba parse native jika memungkinkan
+        const nd = new Date(val);
+        if (!isNaN(nd.getTime())) return nd;
+      }
+
+      if (val instanceof Date && !isNaN(val.getTime())) return val;
+
+      return null;
+    };
+
+    // Ambil dua kolom jika ada: tanggal (full) & waktu-only (biasanya 1899-12-30)
+    const rawUTC = row["Timestamp (UTC)"] ?? row["Timestamp"];
+    const rawWIB = row["Waktu (WIB)"] ?? row["Waktu"];
+
+    const dUTC = parseDateLike(rawUTC);
+    const dWIB = parseDateLike(rawWIB);
+
+    const isTimeOnly = (d) => d && d.getFullYear() <= 1900;
+
+    let out = null;
+
+    if (dUTC && dWIB) {
+      if (isTimeOnly(dUTC) && !isTimeOnly(dWIB)) {
+        // UTC kolom ternyata time-only → pakai tanggal dari WIB, jam dari UTC
+        out = new Date(dWIB.getTime());
+        out.setHours(dUTC.getHours(), dUTC.getMinutes(), dUTC.getSeconds(), 0);
+      } else if (!isTimeOnly(dUTC) && isTimeOnly(dWIB)) {
+        // WIB kolom time-only → pakai tanggal dari UTC, jam dari WIB
+        out = new Date(dUTC.getTime());
+        out.setHours(dWIB.getHours(), dWIB.getMinutes(), dWIB.getSeconds(), 0);
+      } else {
+        // dua-duanya full: pilih WIB jika ada, biar sesuai tampilan sheet
+        out = dWIB || dUTC;
+      }
+    } else if (dUTC || dWIB) {
+      const d = dWIB || dUTC;
+      if (isTimeOnly(d)) return null; // time-only tanpa tanggal → tidak valid
+      out = d;
+    } else {
+      // fallback: coba satu field gabungan
+      out = parseDateLike(rawDate);
     }
-    return row["Timestamp (UTC)"] || row["Waktu (WIB)"] || new Date().toISOString();
+
+    if (!out) return null;
+
+    // Keluarkan ISO lokal TANPA Z (biar tidak bergeser time zone saat dibaca komponen lain)
+    const pad = (n) => String(n).padStart(2, "0");
+    const localIsoNoZ = `${out.getFullYear()}-${pad(out.getMonth() + 1)}-${pad(out.getDate())}T${pad(out.getHours())}:${pad(out.getMinutes())}:${pad(out.getSeconds())}`;
+
+    return localIsoNoZ;
   }
+  // ==============================================================================================
 
   // Data yang dipakai chart/logger
   const mappedData = useMemo(() => {
     if (isLive) {
       return sheetData
-        .filter((row) => row["Timestamp"] || row["Waktu"])
-        .map((row) => ({
-          timestamp:     parseTimestamp(row),
-          temperature:   parseNumber(row["Suhu Tanah"]),
-          temperatureAir:parseNumber(row["Suhu Udara"]),
-          humidity:      parseNumber(row["Kelembaban Udara"]),
-          soilMoisture:  parseNumber(row["Kelembapan Tanah"]),
-          ph:            parseNumber(row["pH"]),
-          flowRate:      parseNumber(row["Flow Rate"]),
-          status:        row["ESP_ID"] ? "connected" : "disconnected",
-        }));
+        .map((row) => {
+          const ts = parseTimestamp(row);
+          if (!ts) return null; // skip baris tanpa timestamp dari sheet
+          return {
+            timestamp:      ts,
+            temperature:    parseNumber(row["Suhu Tanah"]),
+            temperatureAir: parseNumber(row["Suhu Udara"]),
+            humidity:       parseNumber(row["Kelembaban Udara"]),
+            soilMoisture:   parseNumber(row["Kelembapan Tanah"]),
+            ph:             parseNumber(row["pH"]),
+            flowRate:       parseNumber(row["Flow Rate"]),
+            status:         row["ESP_ID"] ? "connected" : "disconnected",
+          };
+        })
+        .filter(Boolean);
     }
     return dummyData;
   }, [isLive, sheetData, dummyData]);

@@ -18,7 +18,7 @@ import useSpreadsheetHidroponik from "@/hooks/useSpreadsheetHidroponik";
 
 // GANTI ID DAN GID SESUAI SHEET HIDROPONIK KAMU!
 const SPREADSHEET_ID = "1rL0v_f4yI4cWr6g0uTwHQSqG-ASnI4cnYw0WArDbDx";
-const SHEET_GID = 0; // Tab pertama atau sesuai
+const SHEET_GID = 1; // Tab pertama atau sesuai
 
 function parseNumber(val) {
   if (typeof val === "string") {

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Leaf, Activity, Phone, Home, ChevronDown, ChevronUp } from 'lucide-react';
+import { Menu, X, Leaf, Activity, Phone, Home, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function Navbar() {
@@ -21,10 +21,11 @@ export default function Navbar() {
       label: 'Monitoring',
       icon: Activity,
       children: [
-        { path: '/irigasitetes', label: 'Irigasi Tetes' },
         { path: '/hidroponik', label: 'Hidroponik' },
+        { path: '/irigasitetes', label: 'Irigasi Tetes' },
       ],
     },
+    { path: '/tentang', label: 'Tentang', icon: Info },
     { path: '/contact', label: 'Kontak', icon: Phone },
   ];
 
