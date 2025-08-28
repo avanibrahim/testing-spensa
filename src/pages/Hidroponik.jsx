@@ -155,7 +155,7 @@ const Hidroponik = () => {
               Data yang ditampilkan adalah data Real-Time
             </p>
             <p className="text-green-700 text-base mt-2">
-              Tanaman: <span className="font-bold">Selada</span> | Fase:{' '}
+              Tanaman: <span className="font-bold">Pakcoy</span> | Fase:{' '}
               <span className="font-bold">Vegetatif</span>
             </p>
           </motion.div>
