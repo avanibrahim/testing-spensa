@@ -1,222 +1,206 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
 } from "recharts";
 import { TrendingUp, BarChart3 } from "lucide-react";
 
+/**************** utils ****************/
 const isNum = (v) => typeof v === "number" && Number.isFinite(v);
-const fmt = (n, d = 2) => (isNum(n) ? Number(n).toFixed(d) : "--");
-const toTime = (ts) => {
-  if (!ts) return "--";
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return String(ts);
-  return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-};
-function avgSafe(arr, key) {
-  const vals = arr.map((x) => x?.[key]).filter(isNum);
-  if (!vals.length) return null;
-  return vals.reduce((a, b) => a + b, 0) / vals.length;
-}
 
-/** Bucketing per interval ms (default 5 detik).
- *  - Group berdasarkan floor(timestamp/interval)*interval
- *  - Hitung rata-rata setiap field numerik per bucket
- *  - Hasil sudah urut ASC
- */
-function bucketizeByInterval(data = [], intervalMs = 5000) {
-  const FIELDS = ["temperature", "temperatureAir", "humidity", "soilMoisture", "ph", "flowRate"];
-  const buckets = new Map();
-
-  for (const item of Array.isArray(data) ? data : []) {
-    const t = Date.parse(item?.timestamp);
-    if (!Number.isFinite(t)) continue; // skip kalau timestamp invalid
-    const key = Math.floor(t / intervalMs) * intervalMs;
-
-    if (!buckets.has(key)) {
-      const base = { ts: key };
-      for (const f of FIELDS) {
-        base[`sum_${f}`] = 0;
-        base[`cnt_${f}`] = 0;
-      }
-      buckets.set(key, base);
-    }
-    const b = buckets.get(key);
-    for (const f of FIELDS) {
-      const v = item?.[f];
-      if (isNum(v)) {
-        b[`sum_${f}`] += v;
-        b[`cnt_${f}`] += 1;
-      }
-    }
+// angka robust (1.234,56 & 1,234.56)
+function toNum(v) {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (v == null) return null;
+  const s = String(v).trim();
+  const dot = s.lastIndexOf(".");
+  const comma = s.lastIndexOf(",");
+  const decSep = dot > comma ? "." : comma > -1 ? "," : null;
+  let cleaned = s.replace(/[^0-9.,-]/g, "");
+  if (decSep) {
+    const other = decSep === "," ? "." : ",";
+    cleaned = cleaned.replace(new RegExp("\\" + other, "g"), "");
+    cleaned = cleaned.replace(decSep, ".");
   }
-
-  const keys = Array.from(buckets.keys()).sort((a, b) => a - b);
-  return keys.map((k) => {
-    const b = buckets.get(k);
-    const out = { timestamp: k };
-    for (const f of ["temperature", "temperatureAir", "humidity", "soilMoisture", "ph", "flowRate"]) {
-      const c = b[`cnt_${f}`];
-      out[f] = c ? b[`sum_${f}`] / c : null;
-    }
-    return out;
-  });
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : null;
 }
 
-/** SensorChartIrigasi
- *  - Urut data ASC
- *  - Resample per 5 detik (bucketMs)
- *  - Tampilkan 20 bucket terakhir (≈100 detik)
- *  - Ringkasan (mean) dihitung dari bucket, bukan 20 titik mentah
- */
-const SensorChartIrigasi = ({
-  data = [],
-  isLive,
-  loading,
-  avgWindow = "all",      // "all" atau number (jumlah bucket terakhir)
-  bucketMs = 5000,        // interval bucketing (default 5 detik)
-  maxBucketsOnChart = 20, // banyaknya bucket yang ditampilkan di chart
-}) => {
-  // 1) Urutkan kronologis (fallback ke index kalau gagal parse)
-  const dataChrono = useMemo(() => {
-    const arr = (Array.isArray(data) ? data : []).map((it, i) => ({ ...it, __i: i }));
-    arr.sort((a, b) => {
-      const ta = Date.parse(a?.timestamp);
-      const tb = Date.parse(b?.timestamp);
-      const va = Number.isFinite(ta) ? ta : a.__i;
-      const vb = Number.isFinite(tb) ? tb : b.__i;
-      return va - vb;
-    });
-    return arr;
-  }, [data]);
+// parser waktu robust
+function parseTsToMs(ts) {
+  if (ts == null) return null;
+  if (typeof ts === "number") return ts < 1e11 ? ts * 1000 : ts; // detik → ms
+  if (ts instanceof Date && !isNaN(ts.getTime())) return ts.getTime();
+  if (typeof ts === "string") {
+    const s = ts.split("TDate")[0].trim();
+    const mDMY = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ ,T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+    if (mDMY) {
+      const [, dd, mm, yyyy, hh = "0", mi = "0", ss = "0"] = mDMY;
+      const d = new Date(+yyyy, +mm - 1, +dd, +hh, +mi, +ss);
+      return isNaN(d) ? null : d.getTime();
+    }
+    const mDate = s.match(/Date\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+))?\s*\)/i);
+    if (mDate) {
+      let [, y, mo, d, hh = "0", mi = "0", ss = "0"] = mDate;
+      const month = +mo >= 1 && +mo <= 12 ? +mo - 1 : +mo;
+      const dt = new Date(+y, month, +d, +hh, +mi, +ss);
+      return isNaN(dt) ? null : dt.getTime();
+    }
+    const d2 = new Date(s);
+    if (!isNaN(d2)) return d2.getTime();
+  }
+  return null;
+}
 
-  // 2) Bucket per 5 detik
-  const bucketed = useMemo(() => bucketizeByInterval(dataChrono, bucketMs), [dataChrono, bucketMs]);
+const fmtNum = (v, d = 2) => {
+  const n = toNum(v);
+  return Number.isFinite(n) ? n.toFixed(d) : "-";
+};
 
-  // 3) Data untuk chart = N bucket terakhir
-  const chartData = useMemo(() => {
-    const sliced = bucketed.slice(-maxBucketsOnChart);
-    return sliced.map((item) => ({
-      time: toTime(item.timestamp),
-      suhuTanah:       isNum(item.temperature)     ? item.temperature     : null,
-      suhuUdara:       isNum(item.temperatureAir)  ? item.temperatureAir  : null,
-      kelembabanUdara: isNum(item.humidity)        ? item.humidity        : null,
-      kelembapanTanah: isNum(item.soilMoisture)    ? item.soilMoisture    : null,
-      ph:              isNum(item.ph)              ? item.ph              : null,
-      flowRate:        isNum(item.flowRate)        ? item.flowRate        : null,
-    }));
-  }, [bucketed, maxBucketsOnChart]);
+const clock = (ms) => {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, "0")}.${String(d.getMinutes()).padStart(2, "0")}.${String(d.getSeconds()).padStart(2, "0")}`;
+};
 
-  // 4) Sumber rata-rata (summary) berdasarkan bucket
-  const avgSource = useMemo(() => {
-    if (avgWindow === "all") return bucketed;
-    const n = typeof avgWindow === "number" && avgWindow > 0 ? avgWindow : maxBucketsOnChart;
-    return bucketed.slice(-n);
-  }, [bucketed, avgWindow, maxBucketsOnChart]);
+// normalisasi field → ts ms + angka bersih
+function normalizeRows(data = []) {
+  return (Array.isArray(data) ? data : [])
+    .map((r, i) => ({
+      __i: i,
+      ts: parseTsToMs(r?.timestamp ?? r?.Timestamp ?? r?.time ?? r?.waktu),
+      temperature: toNum(r?.temperature ?? r?.soilTemp ?? r?.["Suhu Tanah (°C)"]),
+      temperatureAir: toNum(r?.temperatureAir ?? r?.airTemp ?? r?.["Suhu Udara (°C)"]),
+      humidity: toNum(r?.humidity ?? r?.kelembabanUdara ?? r?.["Kelembaban Udara (%)"]),
+      soilMoisture: toNum(r?.soilMoisture ?? r?.kelembabanTanah ?? r?.["Kelembaban Tanah (%)"]),
+      ph: toNum(r?.ph ?? r?.pH ?? r?.["pH Tanah"]),
+      flowRate: toNum(r?.flowRate ?? r?.flow ?? r?.["Flow Rate (L/min)"] ?? r?.flow_lm),
+    }))
+    .filter((r) => r.ts != null)
+    .sort((a, b) => a.ts - b.ts);
+}
 
-  const meanSuhuTanah       = useMemo(() => avgSafe(avgSource, "temperature"),     [avgSource]);
-  const meanSuhuUdara       = useMemo(() => avgSafe(avgSource, "temperatureAir"),  [avgSource]);
-  const meanKelembabanUdara = useMemo(() => avgSafe(avgSource, "humidity"),        [avgSource]);
-  const meanKelembapanTanah = useMemo(() => avgSafe(avgSource, "soilMoisture"),    [avgSource]);
-  const meanPh              = useMemo(() => avgSafe(avgSource, "ph"),              [avgSource]);
-  const meanFlow            = useMemo(() => avgSafe(avgSource, "flowRate"),        [avgSource]);
+const domainFrom = (vals, padPct = 0.06) => {
+  const arr = vals.filter(isNum);
+  if (!arr.length) return [0, 1];
+  let min = Math.min(...arr), max = Math.max(...arr);
+  if (min === max) { const pad = Math.max(0.2, Math.abs(min)*padPct||0.5); min -= pad; max += pad; }
+  else { const rng = max-min; min -= rng*padPct; max += rng*padPct; }
+  return [min, max];
+};
 
-  // Signature terbaru untuk “paksa” rerender Recharts saat bucket terbaru berubah
-  const latestSig = chartData.length
-    ? `${chartData[chartData.length - 1].time}|${chartData.length}`
-    : "empty";
+/**************** component ****************/
+const SensorChartIrigasi = ({ data = [], maxPoints = 60 }) => {
+  const rows = useMemo(() => normalizeRows(data), [data]);
+  const series = useMemo(() => rows.slice(-maxPoints), [rows, maxPoints]);
 
-  const windowLabel =
-    avgWindow === "all" ? "semua bucket" : `${avgWindow} bucket terakhir (${(avgWindow || maxBucketsOnChart) * (bucketMs/1000)} dtk)`;
+  // Domains
+  const tempDomain = useMemo(() => domainFrom(series.flatMap(d => [d.temperature, d.temperatureAir])), [series]);
+  const flowTop = useMemo(() => {
+    const vals = series.map(d => d.flowRate).filter(isNum);
+    const m = vals.length ? Math.max(...vals) : 0; return m > 0 ? m * 1.1 : 0.1;
+  }, [series]);
+
+  // Last (untuk kartu)
+  const last = series[series.length - 1];
+  const latestSig = last ? `${last.ts}-${last.temperature ?? 'x'}-${last.temperatureAir ?? 'x'}-${last.humidity ?? 'x'}-${last.soilMoisture ?? 'x'}-${last.ph ?? 'x'}-${last.flowRate ?? 'x'}` : 'empty';
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="glass-effect p-8 rounded-2xl shadow-xl">
+    <motion.div initial={{opacity:0, y:20}} animate={{opacity:1,y:0}} transition={{duration:0.4}} className="glass-effect p-8 rounded-2xl shadow-xl">
       <div className="flex items-center space-x-3 mb-8">
-        <div className="p-3 bg-purple-500 rounded-xl"><TrendingUp className="h-6 w-6 text-white" /></div>
+        <div className="p-3 bg-indigo-500 rounded-xl"><TrendingUp className="h-6 w-6 text-white" /></div>
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Grafik Sensor Irigasi Tetes</h2>
-          <p className="text-gray-600">
-            Disampling tiap {bucketMs / 1000} detik • Rata-rata: {windowLabel}
-          </p>
+          <p className="text-gray-600">Grafik: {series.length} titik • Auto‑zoom • Waktu HH.MM.SS</p>
         </div>
       </div>
 
-      {chartData.length > 0 ? (
+      {series.length ? (
         <div className="chart-container p-6">
           <ResponsiveContainer width="100%" height={420}>
-            {/* key=latestSig → remount saat data terbaru berubah */}
-            <LineChart data={chartData} key={latestSig}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
-              <XAxis dataKey="time" stroke="#6b7280" fontSize={12} angle={-45} textAnchor="end" height={80} />
-              <YAxis yAxisId="left"  orientation="left"  stroke="#6b7280" fontSize={12} label={{ value: "°C / % / pH", angle: -90, position: "insideLeft" }} />
-              <YAxis yAxisId="right" orientation="right" stroke="#f59e0b" fontSize={12} label={{ value: "Flow (L/min)", angle: 90, position: "insideRight" }} />
-              <Tooltip content={
-                ({ active, payload, label }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="bg-white p-4 border border-gray-200 rounded-lg shadow">
-                        <p className="font-medium text-gray-800 mb-2">{`Waktu: ${label}`}</p>
-                        {payload.map((entry, i) => (
-                          <p key={i} className="text-sm" style={{ color: entry.color }}>
-                            {entry.name}: {isNum(entry.value) ? entry.value : "--"}
-                            {entry.dataKey === "suhuTanah" || entry.dataKey === "suhuUdara"
-                              ? "°C"
-                              : entry.dataKey === "kelembapanTanah" || entry.dataKey === "kelembabanUdara"
-                              ? "%"
-                              : entry.dataKey === "flowRate"
-                              ? " L/min"
-                              : ""}
-                          </p>
-                        ))}
-                      </div>
-                    );
-                  }
-                  return null;
-                }
-              } />
+            <LineChart data={series} key={latestSig} margin={{ top: 16, right: 24, left: 8, bottom: 24 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" dataKey="ts" domain={["dataMin","dataMax"]} tickFormatter={clock} angle={-45} textAnchor="end" height={70} />
+
+              {/* Visible axes */}
+              <YAxis yAxisId="temp" orientation="left" domain={tempDomain} label={{ value: "Suhu (°C)", angle: -90, position: "insideLeft" }} tick={{ fontSize: 12 }} />
+              <YAxis yAxisId="flow" orientation="right" domain={[0, flowTop]} label={{ value: "Flow (L/min)", angle: 90, position: "insideRight" }} tick={{ fontSize: 12 }} />
+
+              {/* Hidden axes for different units so skala benar */}
+              <YAxis yAxisId="hum" domain={[0,100]} hide />
+              <YAxis yAxisId="ph" domain={[0,14]} hide />
+
+              <Tooltip
+                labelFormatter={(ts) => {
+                  const d = new Date(ts);
+                  const dd = String(d.getDate());
+                  const mm = String(d.getMonth()+1);
+                  const yyyy = d.getFullYear();
+                  const hh = String(d.getHours()).padStart(2,'0');
+                  const mi = String(d.getMinutes()).padStart(2,'0');
+                  const ss = String(d.getSeconds()).padStart(2,'0');
+                  return `${dd}/${mm}/${yyyy}, ${hh}.${mi}.${ss}`;
+                }}
+                formatter={(val, name, props) => {
+                  const key = props.dataKey;
+                  if (key === 'temperature' || key === 'temperatureAir') return [fmtNum(val,2), name.includes('Udara')? 'Suhu Udara (°C)' : 'Suhu Tanah (°C)'];
+                  if (key === 'humidity') return [fmtNum(val,1), 'Kelembaban Udara (%)'];
+                  if (key === 'soilMoisture') return [fmtNum(val,1), 'Kelembapan Tanah (%)'];
+                  if (key === 'ph') return [fmtNum(val,2), 'pH'];
+                  if (key === 'flowRate') return [fmtNum(val,2), 'Flow (L/min)'];
+                  return [fmtNum(val,2), name];
+                }}
+              />
               <Legend />
-              <Line yAxisId="left"  type="monotone" dataKey="suhuUdara"       stroke="#ef4444" strokeWidth={2} dot={false} name="Suhu Udara (°C)" />
-              <Line yAxisId="left"  type="monotone" dataKey="kelembabanUdara" stroke="#3b82f6" strokeWidth={2} dot={false} name="Kelembaban Udara (%)" />
-              <Line yAxisId="left"  type="monotone" dataKey="kelembapanTanah" stroke="#22c55e" strokeWidth={2} dot={false} name="Kelembapan Tanah (%)" />
-              <Line yAxisId="left"  type="monotone" dataKey="suhuTanah"       stroke="#10b981" strokeWidth={2} dot={false} name="Suhu Tanah (°C)" />
-              <Line yAxisId="left"  type="monotone" dataKey="ph"              stroke="#8b5cf6" strokeWidth={2} dot={false} name="pH" />
-              <Line yAxisId="right" type="monotone" dataKey="flowRate"        stroke="#f59e0b" strokeWidth={2} dot={false} name="Flow Rate (L/min)" />
+
+              {/* Lines */}
+              <Line yAxisId="temp" type="monotone" dataKey="temperatureAir" stroke="#ef4444" strokeWidth={2} dot={false} name="Suhu Udara (°C)" />
+              <Line yAxisId="temp" type="monotone" dataKey="temperature" stroke="#10b981" strokeWidth={2} dot={false} name="Suhu Tanah (°C)" />
+              <Line yAxisId="hum"  type="monotone" dataKey="humidity" stroke="#3b82f6" strokeWidth={2} dot={false} name="Kelembaban Udara (%)" />
+              <Line yAxisId="hum"  type="monotone" dataKey="soilMoisture" stroke="#22c55e" strokeWidth={2} dot={false} name="Kelembapan Tanah (%)" />
+              <Line yAxisId="ph"   type="monotone" dataKey="ph" stroke="#8b5cf6" strokeWidth={2} dot={false} name="pH" />
+              <Line yAxisId="flow" type="monotone" dataKey="flowRate" stroke="#f59e0b" strokeWidth={2} dot={false} name="Flow Rate (L/min)" />
             </LineChart>
           </ResponsiveContainer>
         </div>
       ) : (
         <div className="text-center py-12">
           <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg">{isLive ? "Menunggu data dari Spreadsheet..." : "Menunggu data simulasi..."}</p>
-          <p className="text-gray-400 text-sm">{isLive ? "Pastikan perangkat ESP32 mengirim data ke spreadsheet." : "Data simulasi akan muncul setiap 4 detik."}</p>
+          <p className="text-gray-500 text-lg">Menunggu data...</p>
         </div>
       )}
 
-      {/* Summary berdasarkan bucket */}
+      {/* Cards last values */}
       <div className="mt-6 grid grid-cols-2 md:grid-cols-6 gap-4">
-        <div className="text-center p-4 bg-red-50 rounded-lg">
-          <div className="text-2xl font-bold text-red-600">{fmt(meanSuhuTanah, 1)}°C</div>
-          <div className="text-sm text-red-700">Suhu Tanah</div>
+        <div className="text-center p-4 bg-emerald-50 rounded-lg">
+          <div className="text-2xl font-bold text-emerald-600">{fmtNum(last?.temperature, 1)}°C</div>
+          <div className="text-sm text-emerald-700">Suhu Tanah (last)</div>
         </div>
-        <div className="text-center p-4 bg-yellow-50 rounded-lg">
-          <div className="text-2xl font-bold text-yellow-600">{fmt(meanSuhuUdara, 1)}°C</div>
-          <div className="text-sm text-yellow-700">Suhu Udara</div>
+        <div className="text-center p-4 bg-rose-50 rounded-lg">
+          <div className="text-2xl font-bold text-rose-600">{fmtNum(last?.temperatureAir, 1)}°C</div>
+          <div className="text-sm text-rose-700">Suhu Udara (last)</div>
         </div>
         <div className="text-center p-4 bg-blue-50 rounded-lg">
-          <div className="text-2xl font-bold text-blue-600">{fmt(meanKelembabanUdara, 1)}%</div>
-          <div className="text-sm text-blue-700">Kelembaban Udara</div>
+          <div className="text-2xl font-bold text-blue-600">{fmtNum(last?.humidity, 1)}%</div>
+          <div className="text-sm text-blue-700">Kelembaban Udara (last)</div>
         </div>
         <div className="text-center p-4 bg-green-50 rounded-lg">
-          <div className="text-2xl font-bold text-green-600">{fmt(meanKelembapanTanah, 1)}%</div>
-          <div className="text-sm text-green-700">Kelembapan Tanah</div>
+          <div className="text-2xl font-bold text-green-600">{fmtNum(last?.soilMoisture, 1)}%</div>
+          <div className="text-sm text-green-700">Kelembapan Tanah (last)</div>
         </div>
         <div className="text-center p-4 bg-purple-50 rounded-lg">
-          <div className="text-2xl font-bold text-purple-600">{fmt(meanPh, 2)}</div>
-          <div className="text-sm text-purple-700">pH Tanah</div>
+          <div className="text-2xl font-bold text-purple-600">{fmtNum(last?.ph, 2)}</div>
+          <div className="text-sm text-purple-700">pH Tanah (last)</div>
         </div>
         <div className="text-center p-4 bg-orange-50 rounded-lg">
-          <div className="text-2xl font-bold text-orange-600">{fmt(meanFlow, 2)} L/min</div>
-          <div className="text-sm text-orange-700">Flow Rate</div>
+          <div className="text-2xl font-bold text-orange-600">{fmtNum(last?.flowRate, 2)} L/min</div>
+          <div className="text-sm text-orange-700">Flow Rate (last)</div>
         </div>
       </div>
     </motion.div>

@@ -7,7 +7,9 @@ import {
   Gauge,
   Wifi,
   WifiOff,
-  Download
+  Download,
+  Activity,
+  CheckCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -35,6 +37,32 @@ function parseTimestamp(row) {
   }
   return row["Timestamp (UTC)"] || row["Waktu (WIB)"] || new Date().toISOString();
 }
+
+// === SensorStatusBar (3 items) ===
+const SensorStatusBar = () => {
+  const sensors = [
+    { name: "Suhu", icon: Thermometer, border: "border-red-300", text: "text-red-500" },
+    { name: "Flow Rate", icon: Activity, border: "border-orange-300", text: "text-orange-500" },
+    { name: "pH", icon: Droplets, border: "border-purple-300", text: "text-purple-500" },
+  ];
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      {sensors.map((s, idx) => (
+        <motion.div
+          key={s.name}
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: idx * 0.1 }}
+          className={`flex flex-col items-center justify-center border-2 ${s.border} rounded-xl p-4 bg-white shadow`}
+        >
+          <s.icon className={`w-8 h-8 ${s.text} mb-1`} />
+          <span className="text-sm text-gray-700 font-medium">{s.name}</span>
+          <CheckCircle className="w-4 h-4 text-green-500 mt-1" />
+        </motion.div>
+      ))}
+    </div>
+  );
+};
 
 const Hidroponik = () => {
   const [isLive, setIsLive] = useState(false);
@@ -187,62 +215,12 @@ const Hidroponik = () => {
             </div>
           </motion.div>
 
-          {/* Info Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-white rounded-2xl shadow p-6 flex items-center space-x-4"
-            >
-              <Thermometer className="h-8 w-8 text-red-500" />
-              <div>
-                <p className="text-gray-600 text-sm">Suhu</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {mappedData.length > 0
-                    ? `${mappedData[mappedData.length - 1].suhu?.toFixed(1)}°C`
-                    : '--'}
-                </p>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-white rounded-2xl shadow p-6 flex items-center space-x-4"
-            >
-              <Gauge className="h-8 w-8 text-blue-500" />
-              <div>
-                <p className="text-gray-600 text-sm">Flow Rate</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {mappedData.length > 0
-                    ? `${mappedData[mappedData.length - 1].flowRate?.toFixed(2)} L/min`
-                    : '--'}
-                </p>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.5 }}
-              className="bg-white rounded-2xl shadow p-6 flex items-center space-x-4"
-            >
-              <Droplets className="h-8 w-8 text-purple-500" />
-              <div>
-                <p className="text-gray-600 text-sm">pH</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {mappedData.length > 0
-                    ? `${mappedData[mappedData.length - 1].pH?.toFixed(2)}`
-                    : '--'}
-                </p>
-              </div>
-            </motion.div>
-          </div>
+          {/* Sensor Status Bar (3 items) */}
+          <SensorStatusBar />
 
           {/* Sensor Chart */}
-          <SensorChart data={mappedData} isLive={isLive} loading={isInitialLoad && loading && isLive} />
+          <SensorChart data={mappedData} isLive={isLive} loading={isInitialLoad && loading && isLive} avgMode="last" />
+
 
           {/* Data Logger */}
           <div className="mt-10">
